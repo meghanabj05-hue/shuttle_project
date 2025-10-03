@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UrbanXpress - Smart Shuttle System</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- login style -->
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+      height: 100vh;
+    }
+
+    /* Button at top-left */
+    .popup-btn {
+      position: fixed;
+      top: 90px;
+      left: 80px;
+      padding: 10px 10px;
+      font-size: 18px;
+      font-weight: 600;
+      background: #00ff88;
+      color: black;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      z-index: 2000;
+    }
+
+    .popup-btn:hover {
+      background: #00ff88;
+      box-shadow: 0 0 15px #00ff88;
+    }
+
+    /* Overlay */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100000000;
+    }
+
+    /* ✅ Auth box (Dark Neon Theme) */
+    .auth-box {
+      background: #0a0a0a;
+      width: 360px;
+      border-radius: 15px;
+      box-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+      overflow: hidden;
+      animation: fadeIn 0.3s ease;
+      border: 2px solid #00ff88;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* Tab buttons */
+    .tab-buttons {
+      display: flex;
+      width: 100%;
+      background: #111;
+    }
+
+    .tab-buttons button {
+      flex: 1;
+      padding: 15px;
+      font-size: 16px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      background: #1a1a1a;
+      color: #aaa;
+      transition: 0.3s;
+    }
+
+    .tab-buttons button.active {
+      background: #00ff88;
+      color: #000;
+      font-weight: 700;
+    }
+
+    /* Form content */
+    .form-container {
+      padding: 25px;
+      text-align: center;
+      color: #fff;
+    }
+
+    .form-container h2 {
+      margin-bottom: 20px;
+      font-weight: 700;
+      color: #00ff88;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .form-container input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      background: #111;
+      border: 2px solid #00ff88;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: 0.3s;
+    }
+
+    .form-container input::placeholder {
+      color: #888;
+    }
+
+    .form-container input:focus {
+      border-color: #00ff88;
+      box-shadow: 0 0 10px #00ff88;
+    }
+
+    .form-container button {
+      width: 100%;
+      padding: 12px;
+      background: #00ff88;
+      border: none;
+      color: #000;
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .form-container button:hover {
+      background: #00e07a;
+      box-shadow: 0 0 15px #00ff88;
+      transform: translateY(-1px);
+    }
+
+    /* Blur effect when popup is active */
+    .content.blur {
+      filter: blur(6px);
+      pointer-events: none;
+      user-select: none;
+      transition: filter 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">Urban<span>Xpress</span></div>
+    <ul class="nav-links">
+      <li><a href="index.html" class="active">Home</a></li>
+      <li><a href="booking.html">Booking</a></li>
+      <li><a href="operator.html">Operator</a></li>
+      <li><a href="about.html">About Us</a></li>
+      <li><a href="admin.html">Admin</a></li>
+      <li><a href="tracking.html">Tracking</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <!-- login body -->
+    <div class="content" id="content">
+      <button class="popup-btn" onclick="openPopup()">Login / Sign Up</button>
+
+      <!-- Popup Overlay -->
+      <div class="overlay" id="overlay">
+        <div class="auth-box" onclick="event.stopPropagation()">
+          <!-- Tab Buttons -->
+          <div class="tab-buttons">
+            <button id="loginTab" class="active" onclick="showLogin()">Login</button>
+            <button id="signupTab" onclick="showSignup()">Sign Up</button>
+          </div>
+
+          <!-- Forms -->
+          <div class="form-container" id="loginForm">
+            <h2>Welcome Back</h2>
+            <input type="text" placeholder="Username" />
+            <input type="password" placeholder="Password" />
+            <button type="submit">Login</button>
+          </div>
+
+          <div class="form-container" id="signupForm" style="display: none;">
+            <h2>Create Account</h2>
+            <input type="text" placeholder="Username" />
+            <input type="email" placeholder="Email" />
+            <input type="password" placeholder="Password" />
+            <button type="submit">Sign Up</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h1>Smart, Reliable, and Urban Mobility</h1>
+    <p>UrbanXpress helps people travel smarter with fast, affordable, and eco-friendly shuttles.</p>
+    <a href="booking.html" class="cta-btn">Book Your Ride</a>
+  </section>
+
+  <!-- login script -->
+  <script>
+    // Open popup
+    function openPopup() {
+      document.getElementById("overlay").style.display = "flex";
+      // document.getElementById("content").classList.add("blur");
+    }
+
+    // Close if clicked outside box
+    document.getElementById("overlay").addEventListener("click", function (e) {
+      if (e.target.id === "overlay") {
+        this.style.display = "none";
+        document.getElementById("content").classList.remove("blur");
+      }
+    });
+
+    // Switch to Login
+    function showLogin() {
+      document.getElementById("loginForm").style.display = "block";
+      document.getElementById("signupForm").style.display = "none";
+      document.getElementById("loginTab").classList.add("active");
+      document.getElementById("signupTab").classList.remove("active");
+    }
+
+    // Switch to Sign Up
+    function showSignup() {
+      document.getElementById("loginForm").style.display = "none";
+      document.getElementById("signupForm").style.display = "block";
+      document.getElementById("signupTab").classList.add("active");
+      document.getElementById("loginTab").classList.remove("active");
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UrbanXpress | Booking</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="booking.css">
+
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- track icon -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">Urban<span>Xpress</span></div>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="booking.html" class="active">Booking</a></li>
+      <li><a href="operator.html">Operator</a></li>
+      <li><a href="about.html">About Us</a></li>
+      <li><a href="admin.html">Admin</a></li>
+      <li><a href="tracking.html">Tracking</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero small-hero">
+    <h1>Book Your Shuttle</h1>
+    <p>Fast, reliable, and eco-friendly rides at your fingertips.</p>
+  </section>
+
+  <!-- Booking Section -->
+  <section class="booking-container">
+    <!-- Booking Form -->
+    <div class="booking-form">
+      <h2>Reserve Your Ride</h2>
+      <form id="bookingForm">
+        <label>Passenger Name</label>
+        <input type="text" id="username" placeholder="Enter your name" required>
+
+        <label>Pickup Location</label>
+        <input type="text" id="pickup" placeholder="Select on map or type" required>
+
+        <label>Drop Location</label>
+        <input type="text" id="drop" placeholder="Select on map or type" required>
+
+        <label>Seats</label>
+        <input type="number" id="seats" min="1" max="6" value="1" required>
+
+        <label>Payment Method</label>
+        <select id="payment" required>
+          <option value="UPI">UPI</option>
+    
+          <option value="Cash">Cash</option>
+        </select>
+
+        <button type="submit">Book Now</button>
+      </form>
+
+      <!-- Ticket -->
+      <div class="ticket" id="ticket"></div>
+    </div>
+
+    <!-- Map -->
+    <div class="map-container">
+      <h2>Select Locations</h2>    <i class="fa-solid fa-train-track"></i>
+                            <!-- added -->
+      <a href="tracking.html" id="trackpage"><button ><h3 id="tracktry"><i class="fa-solid fa-location-dot"></i> Track </h3></button></a>
+      <div id="map"></div>
+      <p style="margin-top:10px;color:#bbb;font-size:0.9rem;">
+        Click on the map to set Pickup (first click) and Drop (second click).
+      </p>
+    </div>
+  </section>
+
+  <script>
+    // Leaflet Map Setup
+    var map = L.map('map').setView([12.9716, 77.5946], 12); // Bengaluru
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    let clickCount = 0;
+    let pickupMarker, dropMarker;
+
+    map.on('click', function(e) {
+      clickCount++;
+      if (clickCount === 1) {
+        if (pickupMarker) map.removeLayer(pickupMarker);
+        pickupMarker = L.marker(e.latlng).addTo(map).bindPopup("Pickup").openPopup();
+        document.getElementById("pickup").value = `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`;
+      } else if (clickCount === 2) {
+        if (dropMarker) map.removeLayer(dropMarker);
+        dropMarker = L.marker(e.latlng).addTo(map).bindPopup("Drop").openPopup();
+        document.getElementById("drop").value = `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`;
+        clickCount = 0; // reset after 2 points
+      }
+    });
+
+    // Handle booking form
+    document.getElementById("bookingForm").addEventListener("submit", function(e){
+      e.preventDefault();
+
+      const name = document.getElementById("username").value;
+      const pickup = document.getElementById("pickup").value;
+      const drop = document.getElementById("drop").value;
+      const datetime = document.getElementById("datetime").value;
+      const seats = document.getElementById("seats").value;
+      const payment = document.getElementById("payment").value;
+
+      const ticketDiv = document.getElementById("ticket");
+      ticketDiv.innerHTML = `
+        <h3>🎫 Shuttle Ticket</h3>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>From:</strong> ${pickup}</p>
+        <p><strong>To:</strong> ${drop}</p>
+        <p><strong>Date & Time:</strong> ${datetime}</p>
+        <p><strong>Seats:</strong> ${seats}</p>
+        <p><strong>Payment:</strong> ${payment}</p>
+        <p style="color:#00ff88;margin-top:8px;"><strong>Status:</strong> Confirmed ✅</p>
+      `;
+      ticketDiv.style.display = "block";
+      ticketDiv.scrollIntoView({ behavior: "smooth" });
+    });
+  </script>
+</body>
+</html>
