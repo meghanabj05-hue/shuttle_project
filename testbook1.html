@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bengaluru Cab Location Picker</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+  <!-- Leaflet Geocoder CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background-color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+    }
+
+    h2 {
+      margin-top: 20px;
+      color: #1e293b;
+    }
+
+    #map {
+      height: 75vh;
+      width: 90%;
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      margin-top: 20px;
+    }
+
+    .leaflet-control-geocoder {
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .location-info {
+      margin-top: 15px;
+      background: white;
+      padding: 10px 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      width: 90%;
+      font-size: 15px;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>🚖 Select or Search Your Pickup Location (Bengaluru Only)</h2>
+
+  <div id="map"></div>
+
+  <div class="location-info" id="location-info">
+    📍 Click on the map or search to view address.
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Geocoder JS -->
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+  <script>
+  const map = L.map("map").setView([12.9716, 77.5946], 12);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap contributors",
+  }).addTo(map);
+
+  // ✅ Define service zones
+  const zones = {
+    hebbal: { center: [13.0358, 77.5970], radius: 3 },
+    whitefield: { center: [12.9698, 77.7500], radius: 3 },
+    malleshwaram: { center: [13.0033, 77.5690], radius: 3 },
+    tinfactory: { center: [12.9881, 77.6406], radius: 3 },
+  };
+
+  // Draw visual circles for reference (you can comment out later)
+  Object.values(zones).forEach((z) => {
+    L.circle(z.center, {
+      radius: z.radius * 1000,
+      color: "#00ff88",
+      fillOpacity: 0.1,
+    }).addTo(map);
+  });
+
+  let pickupMarker = null,
+    dropMarker = null;
+  let activeSelection = "pickup";
+
+  const greenIcon = new L.Icon({
+    iconUrl:
+      "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
+    shadowUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-shadow.png",
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+  });
+
+  const redIcon = new L.Icon({
+    iconUrl:
+      "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+    shadowUrl:
+      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-shadow.png",
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+  });
+
+  const pickupBtn = document.getElementById("pickupBtn");
+  const dropBtn = document.getElementById("dropBtn");
+
+  pickupBtn.addEventListener("click", () => switchMode("pickup"));
+  dropBtn.addEventListener("click", () => switchMode("drop"));
+
+  function switchMode(mode) {
+    activeSelection = mode;
+    pickupBtn.classList.toggle("active-btn", mode === "pickup");
+    pickupBtn.classList.toggle("inactive-btn", mode !== "pickup");
+    dropBtn.classList.toggle("active-btn", mode === "drop");
+    dropBtn.classList.toggle("inactive-btn", mode !== "drop");
+    document.getElementById("location-info").innerHTML =
+      mode === "pickup"
+        ? "🟢 Select your <b>Pickup</b> location (within service zones)"
+        : "🔴 Select your <b>Drop</b> location (within service zones)";
+  }
+
+  const geocoder = L.Control.geocoder({
+    defaultMarkGeocode: false,
+    geocoder: L.Control.Geocoder.nominatim({
+      geocodingQueryParams: { countrycodes: "in" },
+    }),
+  })
+    .on("markgeocode", function (e) {
+      const latlng = e.geocode.center;
+      const name = e.geocode.name || "Selected location";
+      validateAndSetMarker(latlng, name);
+    })
+    .addTo(map);
+
+  map.on("click", function (e) {
+    const lat = e.latlng.lat;
+    const lon = e.latlng.lng;
+    fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        const name = data.display_name || "Selected location";
+        validateAndSetMarker(e.latlng, name);
+      });
+  });
+
+  // ✅ Check if location is inside any zone
+  function isInsideZone(lat, lon) {
+    for (const [zone, data] of Object.entries(zones)) {
+      const dist = distance(
+        lat,
+        lon,
+        data.center[0],
+        data.center[1]
+      ); // km
+      if (dist <= data.radius) {
+        return zone;
+      }
+    }
+    return null;
+  }
+
+  // ✅ Calculate distance between two lat/lon (Haversine)
+  function distance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function validateAndSetMarker(latlng, name) {
+    const zone = isInsideZone(latlng.lat, latlng.lng);
+    if (!zone) {
+      L.popup()
+        .setLatLng(latlng)
+        .setContent("❌ Shuttles are not available in this area.")
+        .openOn(map);
+      alert("Shuttles are not available in this area.");
+      return;
+    }
+
+    setMarker(latlng, name, zone);
+  }
+
+  function setMarker(latlng, name, zone) {
+    const icon = activeSelection === "pickup" ? greenIcon : redIcon;
+    const inputId = activeSelection === "pickup" ? "pickup" : "drop";
+    const markerRef =
+      activeSelection === "pickup" ? "pickupMarker" : "dropMarker";
+
+    if (window[markerRef]) map.removeLayer(window[markerRef]);
+    window[markerRef] = L.marker(latlng, { icon }).addTo(map);
+
+    document.getElementById(inputId).value = `${name} (${zone})`;
+    map.setView(latlng, 15);
+    document.getElementById("location-info").innerHTML = `
+      ✅ <b>${activeSelection === "pickup" ? "Pickup" : "Drop"} set in ${zone.toUpperCase()}</b><br>
+      ${name}<br>
+      Lat: ${latlng.lat.toFixed(5)}, Lng: ${latlng.lng.toFixed(5)}
+    `;
+  }
+
+  </script>
+</body>
+</html>
