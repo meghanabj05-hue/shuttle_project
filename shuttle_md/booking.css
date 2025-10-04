@@ -61,13 +61,16 @@
     #trackpage button{
       width: 100px;
       height: 28px;
+      cursor: pointer;
     }
 
     #tracktry{
       background-color: black;
       color: #00ff88;
       font-size: 20px;
+    
     }
+    
 
   .fa-location-dot {
     color: rgb(239, 111, 32);

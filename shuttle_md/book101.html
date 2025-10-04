@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UrbanXpress | Booking</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="booking.css">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <!-- Leaflet Geocoder CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    /* Preserve your booking page design */
+    .leaflet-control-geocoder {
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .leaflet-control-geocoder input {
+      background:#111; color:#eee; border:none; border-radius:8px;
+      padding:8px; width:200px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">Urban<span>Xpress</span></div>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="booking.html" class="active">Booking</a></li>
+      <li><a href="track2.html">Tracking</a></li>
+      <li><a href="operator.html">Operator</a></li>
+      <li><a href="about.html">About Us</a></li>
+      <li><a href="admin.html">Admin</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero small-hero">
+    <h1>Book Your Shuttle</h1>
+    <p>Fast, reliable, and eco-friendly rides at your fingertips.</p>
+  </section>
+
+  <!-- Booking Section -->
+  <section class="booking-container">
+    <!-- Booking Form -->
+    <div class="booking-form">
+      <h2>Reserve Your Ride</h2>
+      <form id="bookingForm">
+        <label>Passenger Name</label>
+        <input type="text" id="username" placeholder="Enter your name" required>
+
+        <label>Pickup Location</label>
+        <input type="text" id="pickup" placeholder="Select on map or type" required>
+
+        <label>Drop Location</label>
+        <input type="text" id="drop" placeholder="Select on map or type" required>
+
+        <label>Seats</label>
+        <input type="number" id="seats" min="1" max="6" value="1" required>
+
+        <label>Payment Method</label>
+        <select id="payment" required>
+          <option value="UPI">UPI</option>
+          <option value="Cash">Cash</option>
+        </select>
+
+        <button type="submit">Book Now</button>
+      </form>
+
+      <!-- Ticket -->
+      <div class="ticket" id="ticket"></div>
+    </div>
+
+    <!-- Map -->
+    <div class="map-container">
+      <h2>Select Locations</h2>
+      <i class="fa-solid fa-train-track"></i>
+      <a href="tracking.html" id="trackpage"><button><h3 id="tracktry"><i class="fa-solid fa-location-dot"></i> Track </h3></button></a>
+      <div id="map"></div>
+      <p style="margin-top:10px;color:#bbb;font-size:0.9rem;">
+        Click on the map to set Pickup (first click) and Drop (second click) or type in the search box.
+      </p>
+    </div>
+  </section>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- Geocoder JS -->
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+  <script>
+ // -------------------
+// -------------------
+// Pilot Zones Setup
+// -------------------
+const pilotAreas = {
+  hebbal:      { center: [13.0358, 77.5970], color: '#f9a825' },
+  whitefield:  { center: [12.9698, 77.7500], color: '#4fc3f7' },
+  malleshwaram:{ center: [13.0033, 77.5690], color: '#81c784' },
+  tinfactory:  { center: [12.9881, 77.6406], color: '#ce93d8' }
+};
+
+// Initialize map
+const map = L.map('map').setView(pilotAreas.hebbal.center, 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+// Draw pilot area circles
+const areaLayers = {};
+Object.entries(pilotAreas).forEach(([key, a]) => {
+  const circle = L.circle(a.center, { radius: 5000, color: a.color, weight: 3, fillColor: a.color, fillOpacity: 0.12 }).addTo(map);
+  circle.bindPopup(`<strong>${key[0].toUpperCase()+key.slice(1)}</strong> — service zone`);
+  areaLayers[key] = circle;
+});
+
+// -------------------
+// Pickup & Drop Markers
+// -------------------
+let pickupMarker = null;
+let dropMarker = null;
+let currentType = "pickup"; // Tracks which input is active
+
+function distanceKm(lat1, lon1, lat2, lon2){
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R*c;
+}
+
+// Get zone name if point is inside any pilot zone
+function getZone(lat, lng){
+  for(const [key, area] of Object.entries(pilotAreas)){
+    if(distanceKm(lat, lng, area.center[0], area.center[1]) <= 5){
+      return key;
+    }
+  }
+  return null;
+}
+
+// Set marker and input
+function setMarker(latlng, type, name){
+  if(type==="pickup"){
+    if(pickupMarker) map.removeLayer(pickupMarker);
+    pickupMarker = L.marker(latlng).addTo(map).bindPopup("Pickup").openPopup();
+    document.getElementById("pickup").value = name;
+  } else {
+    if(dropMarker) map.removeLayer(dropMarker);
+    dropMarker = L.marker(latlng).addTo(map).bindPopup("Drop").openPopup();
+    document.getElementById("drop").value = name;
+  }
+  map.setView(latlng, 15);
+}
+
+// -------------------
+// Map Click Event
+// -------------------
+map.on('click', function(e){
+  const zone = getZone(e.latlng.lat, e.latlng.lng);
+  if(!zone){ 
+    alert("Shuttles are not available in this area."); 
+    return; 
+  }
+  // Reverse geocode nearest place in zone
+  fetch(`https://nominatim.openstreetmap.org/reverse?lat=${e.latlng.lat}&lon=${e.latlng.lng}&format=json&addressdetails=1`)
+    .then(res=>res.json())
+    .then(data=>{
+      let name = data.name || data.display_name || zone[0].toUpperCase()+zone.slice(1);
+      setMarker(e.latlng, currentType, name);
+    })
+    .catch(()=>setMarker(e.latlng, currentType, zone[0].toUpperCase()+zone.slice(1)));
+});
+
+// -------------------
+// Autocomplete for Inputs
+// -------------------
+function setupAutocomplete(inputId){
+  const input = document.getElementById(inputId);
+  input.addEventListener('focus', ()=> currentType = (inputId==="pickup")?"pickup":"drop");
+
+  let timeout = null;
+  input.addEventListener('input', function(){
+    clearTimeout(timeout);
+    const query = input.value.trim();
+    if(query.length<1) return;
+
+    timeout = setTimeout(()=>{
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&countrycodes=in`)
+      .then(res=>res.json())
+      .then(results=>{
+        // Filter results inside pilot zones
+        const filtered = results.filter(r=>{
+          return getZone(parseFloat(r.lat), parseFloat(r.lon))!==null;
+        });
+
+        // Create/update datalist
+        let listId = inputId+"-list";
+        let datalist = document.getElementById(listId);
+        if(!datalist){
+          datalist = document.createElement('datalist');
+          datalist.id = listId;
+          document.body.appendChild(datalist);
+          input.setAttribute('list', listId);
+        }
+        datalist.innerHTML = "";
+        filtered.forEach(r=>{
+          const option = document.createElement('option');
+          const zone = getZone(parseFloat(r.lat), parseFloat(r.lon));
+          option.value = r.display_name || zone[0].toUpperCase()+zone.slice(1);
+          option.dataset.lat = r.lat;
+          option.dataset.lon = r.lon;
+          datalist.appendChild(option);
+        });
+      });
+    }, 300);
+  });
+
+  // On selection from datalist
+  input.addEventListener('change', function(){
+    const val = input.value;
+    const datalist = document.getElementById(inputId+"-list");
+    const option = Array.from(datalist.options).find(o=>o.value===val);
+    if(!option){
+      alert("Please select a valid location from the suggestions.");
+      input.value = "";
+      return;
+    }
+    const lat = parseFloat(option.dataset.lat);
+    const lon = parseFloat(option.dataset.lon);
+    setMarker(L.latLng(lat, lon), currentType, val);
+  });
+}
+
+setupAutocomplete("pickup");
+setupAutocomplete("drop");
+
+// -------------------
+// Booking Form Submission
+// -------------------
+document.getElementById("bookingForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  const name = document.getElementById("username").value;
+  const pickup = document.getElementById("pickup").value;
+  const drop = document.getElementById("drop").value;
+  const seats = document.getElementById("seats").value;
+  const payment = document.getElementById("payment").value;
+
+  const ticketDiv = document.getElementById("ticket");
+  ticketDiv.innerHTML = `
+    <h3>🎫 Shuttle Ticket</h3>
+    <p><strong>Name:</strong> ${name}</p>
+    <p><strong>From:</strong> ${pickup}</p>
+    <p><strong>To:</strong> ${drop}</p>
+    <p><strong>Seats:</strong> ${seats}</p>
+    <p><strong>Payment:</strong> ${payment}</p>
+    <p style="color:#00ff88;margin-top:8px;"><strong>Status:</strong> Confirmed ✅</p>`;
+  ticketDiv.style.display = "block";
+  ticketDiv.scrollIntoView({ behavior: "smooth" });
+});
+
+// -------------------
+// Fit map to show all zones
+// -------------------
+const group = L.featureGroup(Object.values(areaLayers));
+map.fitBounds(group.getBounds(), { padding:[60,60] });
+window.addEventListener('resize', ()=> setTimeout(()=> map.invalidateSize(),300));
+
+  </script>
+</body>
+</html>

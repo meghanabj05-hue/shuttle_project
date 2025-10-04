@@ -7,12 +7,23 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="booking.css">
 
-
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <!-- track icon -->
+  <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Additional styling for zone select */
+    #zoneSelect {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      background: #111;
+      color: #eee;
+    }
+  </style>
 </head>
 
 <body>
@@ -22,10 +33,10 @@
     <ul class="nav-links">
       <li><a href="index.html">Home</a></li>
       <li><a href="booking.html" class="active">Booking</a></li>
+      <li><a href="track2.html">Tracking</a></li>
       <li><a href="operator.html">Operator</a></li>
       <li><a href="about.html">About Us</a></li>
       <li><a href="admin.html">Admin</a></li>
-      <li><a href="tracking.html">Tracking</a></li>
     </ul>
   </nav>
 
@@ -41,14 +52,26 @@
     <div class="booking-form">
       <h2>Reserve Your Ride</h2>
       <form id="bookingForm">
+
         <label>Passenger Name</label>
         <input type="text" id="username" placeholder="Enter your name" required>
 
+        <label>Zone</label>
+        <select id="zoneSelect" required>
+          <option value="">Select Zone</option>
+          <option value="hebbal">Hebbal</option>
+          <option value="whitefield">Whitefield</option>
+          <option value="malleshwaram">Malleshwaram</option>
+          <option value="tinfactory">Tinfactory</option>
+        </select>
+
         <label>Pickup Location</label>
-        <input type="text" id="pickup" placeholder="Select on map or type" required>
+        <input type="text" id="pickup" placeholder="Select on map or type" required list="pickup-list">
+        <datalist id="pickup-list"></datalist>
 
         <label>Drop Location</label>
-        <input type="text" id="drop" placeholder="Select on map or type" required>
+        <input type="text" id="drop" placeholder="Select on map or type" required list="drop-list">
+        <datalist id="drop-list"></datalist>
 
         <label>Seats</label>
         <input type="number" id="seats" min="1" max="6" value="1" required>
@@ -56,7 +79,6 @@
         <label>Payment Method</label>
         <select id="payment" required>
           <option value="UPI">UPI</option>
-    
           <option value="Cash">Cash</option>
         </select>
 
@@ -69,9 +91,11 @@
 
     <!-- Map -->
     <div class="map-container">
-      <h2>Select Locations</h2>    <i class="fa-solid fa-train-track"></i>
-                            <!-- added -->
-      <a href="tracking.html" id="trackpage"><button ><h3 id="tracktry"><i class="fa-solid fa-location-dot"></i> Track </h3></button></a>
+      <h2>Select Locations</h2>
+      <i class="fa-solid fa-train-track"></i>
+      <a href="tracking.html" id="trackpage">
+        <button><h3 id="tracktry"><i class="fa-solid fa-location-dot"></i> Track </h3></button>
+      </a>
       <div id="map"></div>
       <p style="margin-top:10px;color:#bbb;font-size:0.9rem;">
         Click on the map to set Pickup (first click) and Drop (second click).
@@ -80,37 +104,104 @@
   </section>
 
   <script>
-    // Leaflet Map Setup
-    var map = L.map('map').setView([12.9716, 77.5946], 12); // Bengaluru
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-    }).addTo(map);
+    // Define pilot areas with sub-locations for autocomplete
+    const pilotAreas = {
+      hebbal: {
+        center: [13.0358, 77.5970],
+        color: '#f9a825',
+        locations: ["Hebbal Flyover", "Manyata Tech Park", "RMZ Ecospace", "Hebbal Lake"]
+      },
+      whitefield: {
+        center: [12.9698, 77.7500],
+        color: '#4fc3f7',
+        locations: ["ITPL", "Forum Value Mall", "Phoenix Marketcity", "Whitefield Railway Station"]
+      },
+      malleshwaram: {
+        center: [13.0033, 77.5690],
+        color: '#81c784',
+        locations: ["Srinivasa Temple", "Malleshwaram Market", "Sadashivanagar", "City Railway Crossing"]
+      },
+      tinfactory: {
+        center: [12.9881, 77.6406],
+        color: '#ce93d8',
+        locations: ["Indiranagar Metro Station", "100 Ft Road", "BDA Complex", "CMH Road"]
+      }
+    };
+
+    // Initialize map
+    var map = L.map('map').setView([12.9716, 77.5946], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
     let clickCount = 0;
     let pickupMarker, dropMarker;
+    let selectedZone = null;
 
-    map.on('click', function(e) {
+    const pickupInput = document.getElementById("pickup");
+    const dropInput = document.getElementById("drop");
+    const pickupList = document.getElementById("pickup-list");
+    const dropList = document.getElementById("drop-list");
+
+    // Zone select change
+    document.getElementById("zoneSelect").addEventListener("change", function(){
+      selectedZone = this.value;
+      updateAutocomplete();
+      clearMarkers();
+    });
+
+    function updateAutocomplete(){
+      if(!selectedZone) return;
+      const locations = pilotAreas[selectedZone].locations;
+      pickupList.innerHTML = "";
+      dropList.innerHTML = "";
+      locations.forEach(loc => {
+        pickupList.innerHTML += `<option value="${loc}">`;
+        dropList.innerHTML += `<option value="${loc}">`;
+      });
+    }
+
+    function clearMarkers(){
+      if(pickupMarker) map.removeLayer(pickupMarker);
+      if(dropMarker) map.removeLayer(dropMarker);
+      clickCount = 0;
+      pickupInput.value = "";
+      dropInput.value = "";
+    }
+
+    // Map click handler
+    map.on('click', function(e){
+      if(!selectedZone){
+        alert("Please select a zone first!");
+        return;
+      }
+      const zoneCenter = pilotAreas[selectedZone].center;
+      const distance = map.distance(e.latlng, zoneCenter);
+      const maxRadius = 5000; // 5 km radius
+      if(distance > maxRadius){
+        alert("Please select a location inside the selected zone!");
+        return;
+      }
+
       clickCount++;
-      if (clickCount === 1) {
-        if (pickupMarker) map.removeLayer(pickupMarker);
+      const name = `Selected ${clickCount === 1 ? "Pickup" : "Drop"} Point`;
+
+      if(clickCount === 1){
+        if(pickupMarker) map.removeLayer(pickupMarker);
         pickupMarker = L.marker(e.latlng).addTo(map).bindPopup("Pickup").openPopup();
-        document.getElementById("pickup").value = `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`;
-      } else if (clickCount === 2) {
-        if (dropMarker) map.removeLayer(dropMarker);
+        pickupInput.value = name;
+      } else if(clickCount === 2){
+        if(dropMarker) map.removeLayer(dropMarker);
         dropMarker = L.marker(e.latlng).addTo(map).bindPopup("Drop").openPopup();
-        document.getElementById("drop").value = `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`;
-        clickCount = 0; // reset after 2 points
+        dropInput.value = name;
+        clickCount = 0;
       }
     });
 
-    // Handle booking form
+    // Booking form submit
     document.getElementById("bookingForm").addEventListener("submit", function(e){
       e.preventDefault();
-
       const name = document.getElementById("username").value;
-      const pickup = document.getElementById("pickup").value;
-      const drop = document.getElementById("drop").value;
-      const datetime = document.getElementById("datetime").value;
+      const pickup = pickupInput.value;
+      const drop = dropInput.value;
       const seats = document.getElementById("seats").value;
       const payment = document.getElementById("payment").value;
 
@@ -118,15 +209,19 @@
       ticketDiv.innerHTML = `
         <h3>🎫 Shuttle Ticket</h3>
         <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Zone:</strong> ${selectedZone[0].toUpperCase()+selectedZone.slice(1)}</p>
         <p><strong>From:</strong> ${pickup}</p>
         <p><strong>To:</strong> ${drop}</p>
-        <p><strong>Date & Time:</strong> ${datetime}</p>
         <p><strong>Seats:</strong> ${seats}</p>
         <p><strong>Payment:</strong> ${payment}</p>
-        <p style="color:#00ff88;margin-top:8px;"><strong>Status:</strong> Confirmed ✅</p>
-      `;
+        <p style="color:#00ff88;margin-top:8px;"><strong>Status:</strong> Confirmed ✅</p>`;
       ticketDiv.style.display = "block";
       ticketDiv.scrollIntoView({ behavior: "smooth" });
+    });
+
+    // Draw zone circles on map
+    Object.values(pilotAreas).forEach(area => {
+      L.circle(area.center, { radius: 5000, color: area.color, weight: 3, fillColor: area.color, fillOpacity: 0.12 }).addTo(map);
     });
   </script>
 </body>
